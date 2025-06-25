@@ -1,4 +1,4 @@
-# ferramenta de priorizacao
+# Ferramenta de priorização
 
 import streamlit as st
 import pandas as pd
@@ -7,12 +7,16 @@ import numpy as np
 import sqlite3
 import io
 
+# --- Configuração da Página ---
+st.set_page_config(
+    page_title="Matriz de Priorização de Projetos",
+    layout="wide"
+)
+
 # --- Configuração da Base de Dados SQLite ---
 def init_db():
-    """Cria a base de dados e a tabela de projetos se não existirem."""
     conn = sqlite3.connect('projetos.db')
     cursor = conn.cursor()
-    # Nomes de colunas simplificados para garantir consistência
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS projetos (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -30,7 +34,6 @@ def init_db():
     conn.close()
 
 def gravar_projeto(data):
-    """Grava um novo projeto na base de dados."""
     conn = sqlite3.connect('projetos.db')
     cursor = conn.cursor()
     cursor.execute("""
@@ -48,7 +51,6 @@ def gravar_projeto(data):
 
 @st.cache_data(ttl=60)
 def ler_projetos():
-    """Lê todos os projetos da base de dados e retorna um DataFrame."""
     conn = sqlite3.connect('projetos.db')
     df = pd.read_sql('SELECT * FROM projetos', conn)
     conn.close()
@@ -59,33 +61,30 @@ MAPA_ALINHAMENTO = {"Desconectado da estratégia da empresa": 1, "Levemente cone
 MAPA_EBITDA = {"Nenhum impacto financeiro estimável": 1, "Impacto operacional localizado e difícil de quantificar": 2, "Geração de eficiência escalável ou corte de custos moderado": 3, "Aumento de receita ou economia > R$ 500k/ano": 4, "Impacto financeiro direto, claro, e potencial multimilionário": 5}
 MAPA_COMPLEXIDADE = {"Solução simples, com dados e lógica prontos": 1, "Requer pequenas transformações ou integrações": 2, "Demanda uso de modelos básicos, múltiplas fontes": 3, "Envolve arquitetura complexa, pipelines robustos": 4, "Alto risco técnico, dependência de tecnologias emergentes": 5}
 MAPA_CUSTO = {"Entregável em até 2 semanas com equipe atual": 1, "Exige até 1 mês com recursos existentes": 2, "Precisa de squad dedicado por mais de 1 mês": 3, "Necessita orçamento adicional, contratação ou serviços externos": 4, "Alto custo recorrente e/ou necessidade de aquisição relevante": 5}
-MAPA_ENGAJAMENTO = {"Área requisitante ausente ou passiva": 5, "Pouco engajamento, sem interlocutor fixo": 4, "Engajamento esporádico e reativo": 3, "Existe Data Owner claro e colaborativo": 2, "Cocriação ativa com liderança da área e patrocínio executivo": 1}
+MAPA_ENGAJAMENTO = {"Área requisitante ausente ou passiva": 1, "Pouco engajamento, sem interlocutor fixo": 2, "Engajamento esporádico e reativo": 3, "Existe Data Owner claro e colaborativo": 4, "Cocriação ativa com liderança da área e patrocínio executivo": 5}
 MAPA_DEPENDENCIA = {"Nenhum fornecedor envolvido. Tudo interno": 1, "Fornecedor envolvido, mas contrato vigente e serviços maduros": 2, "Alguma dependência de entregas de terceiros, com SLA razoável": 3, "Dependência crítica de fornecedor específico, sem redundância": 4, "Fornecedores múltiplos, novos ou instáveis, com risco de travamento": 5}
+
 
 # --- Funções de Cálculo e Classificação ---
 def calcular_notas(df):
-    """Mapeia as seleções de texto para notas numéricas e calcula as notas finais de Impacto e Esforço."""
     if df.empty: return df
     
-    # Mapeia as descrições para scores numéricos
     df['score_alinhamento'] = df['alinhamento'].map(MAPA_ALINHAMENTO)
     df['score_ebitda'] = df['ebitda'].map(MAPA_EBITDA)
     df['score_complexidade'] = df['complexidade'].map(MAPA_COMPLEXIDADE)
     df['score_custo'] = df['custo'].map(MAPA_CUSTO)
-    df['score_engajamento'] = df['engajamento'].map(MAPA_ENGAJAMENTO)
+    df['score_engajamento'] = 6 - df['engajamento'].map(MAPA_ENGAJAMENTO)
     df['score_dependencia'] = df['dependencia'].map(MAPA_DEPENDENCIA)
 
-    # Calcula as notas finais como a média dos scores de cada grupo
     df['Nota Impacto'] = df[['score_alinhamento', 'score_ebitda']].mean(axis=1)
     df['Nota Esforço'] = df[['score_complexidade', 'score_custo', 'score_engajamento', 'score_dependencia']].mean(axis=1)
     
     return df
 
 def classificar_projetos(df):
-    """Classifica os projetos com um ponto de corte FIXO em 2.5."""
-    # PONTO DE CORTE FIXO CORRIGIDO = 2.5
     ponto_corte = 2.5
 
+    # AQUI ESTÁ A ALTERAÇÃO DE NOMENCLATURA
     conditions = [
         (df['demanda_legal'] == 1),
         (df['Nota Impacto'] >= ponto_corte) & (df['Nota Esforço'] < ponto_corte),
@@ -108,8 +107,7 @@ def to_excel(df):
 init_db()
 
 # --- Interface Principal ---
-st.set_page_config(page_title="Matriz de Priorização de Projetos", layout="wide")
-st.title("Matriz de Priorização de Projetos")
+st.title("Matriz de Priorização de Projetos") # Ícone removido
 st.markdown("Selecione a descrição que melhor se adequa ao projeto em cada critério.")
 
 with st.sidebar.form("novo_projeto_form", clear_on_submit=True):
@@ -144,7 +142,7 @@ if submitted:
 df_projetos = ler_projetos()
 
 if not df_projetos.empty:
-    df_com_notas = calcular_notas(df_projetos.copy()) # Usa .copy() por segurança
+    df_com_notas = calcular_notas(df_projetos.copy())
     df_classificado, imp_corte, esf_corte = classificar_projetos(df_com_notas)
     
     st.subheader("Tabela de Priorização")
@@ -152,6 +150,7 @@ if not df_projetos.empty:
     st.dataframe(df_classificado[colunas_para_exibir].rename(columns=lambda c: c.replace('_', ' ').title()).round(2))
 
     st.subheader("Matriz de Priorização")
+    
     fig = px.scatter(
         df_classificado,
         x="Nota Esforço", y="Nota Impacto",
@@ -165,24 +164,21 @@ if not df_projetos.empty:
         hover_data=colunas_para_exibir
     )
     
-    # Linhas de corte corrigidas para 2.5
     fig.add_vline(x=esf_corte, line_dash="dash", line_color="gray")
     fig.add_hline(y=imp_corte, line_dash="dash", line_color="gray")
     
-    # Anotações dos quadrantes
     fig.add_annotation(x=esf_corte/2, y=imp_corte/2, text="Projetos Rápidos", showarrow=False, font=dict(color="gray", size=10))
     fig.add_annotation(x=esf_corte + (5-esf_corte)/2, y=imp_corte/2, text="Reavaliar", showarrow=False, font=dict(color="gray", size=10))
     fig.add_annotation(x=esf_corte/2, y=imp_corte + (5-imp_corte)/2, text="Ganhos Rápidos", showarrow=False, font=dict(color="gray", size=10))
     fig.add_annotation(x=esf_corte + (5-esf_corte)/2, y=imp_corte + (5-imp_corte)/2, text="Projetos Maiores", showarrow=False, font=dict(color="gray", size=10))
     
     fig.update_traces(textposition='top center')
-    fig.update_xaxes(range=[1, 5.1]) # Força os eixos a irem de 1 a 5
+    fig.update_xaxes(range=[1, 5.1])
     fig.update_yaxes(range=[1, 5.1])
     fig.update_layout(xaxis_title="Esforço →", yaxis_title="Impacto →", legend_title="Classificação", height=600)
     st.plotly_chart(fig, use_container_width=True)
 
     st.subheader("Exportar Dados")
-    # No Excel, exportamos o DataFrame completo com todos os detalhes
     excel_data = to_excel(df_classificado)
     st.download_button(label="📥 Download como Excel", data=excel_data, file_name="matriz_priorizacao_detalhada.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 else:
