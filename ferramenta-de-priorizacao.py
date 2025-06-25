@@ -178,8 +178,8 @@ if not df_projetos.empty:
     fig.add_annotation(x=esf_corte + (5-esf_corte)/2, y=imp_corte + (5-imp_corte)/2, text="Projetos Maiores", showarrow=False, font=dict(color="gray", size=10))
     
     fig.update_traces(textposition='top center')
-    fig.update_xaxes(range=[1, 5.1])
-    fig.update_yaxes(range=[1, 5.1])
+    fig.update_xaxes(range=[0, 5.1])
+    fig.update_yaxes(range=[0, 5.1])
     fig.update_layout(xaxis_title="Esforço →", yaxis_title="Impacto →", legend_title="Classificação", height=600)
     st.plotly_chart(fig, use_container_width=True)
 
