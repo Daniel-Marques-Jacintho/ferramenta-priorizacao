@@ -14,8 +14,10 @@ st.set_page_config(
 )
 
 # --- Configuração da Base de Dados SQLite ---
+DB_FILE = "projetos_v2.db"
 def init_db():
-    conn = sqlite3.connect('projetos.db')
+    """Cria a base de dados e a tabela de projetos se não existirem."""
+    conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS projetos (
@@ -34,7 +36,8 @@ def init_db():
     conn.close()
 
 def gravar_projeto(data):
-    conn = sqlite3.connect('projetos.db')
+    """Grava um novo projeto na base de dados."""
+    conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
     cursor.execute("""
         INSERT INTO projetos (
@@ -51,10 +54,12 @@ def gravar_projeto(data):
 
 @st.cache_data(ttl=60)
 def ler_projetos():
-    conn = sqlite3.connect('projetos.db')
+    """Lê todos os projetos da base de dados e retorna um DataFrame."""
+    conn = sqlite3.connect(DB_FILE)
     df = pd.read_sql('SELECT * FROM projetos', conn)
     conn.close()
     return df
+
 
 # --- Dicionários de Mapeamento (Critério -> Nota) ---
 MAPA_ALINHAMENTO = {"Desconectado da estratégia da empresa": 1, "Levemente conectado a temas operacionais": 2, "Conectado a um objetivo estratégico secundário": 3, "Atende diretamente um objetivo estratégico prioritário": 4, "É essencial para a execução de uma frente estratégica central": 5}
