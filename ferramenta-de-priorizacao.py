@@ -84,7 +84,7 @@ def classificar_projetos(df):
         (df['Nota Impacto'] < impacto_corte) & (df['Nota Esforço'] >= esforco_corte)
     ]
     
-    choices = ['Prioridade Legal', 'Quick Wins', 'Projetos Maiores', 'Fill-Ins', 'Reavaliar']
+    choices = ['Prioridade Legal', 'Ganho rápido', 'Projetos Maiores', 'Projetos Pequenos', 'Reavaliar']
     df['Classificação'] = np.select(conditions, choices, default='N/A')
     # Retorna os pontos de corte para desenhar as linhas no gráfico
     return df, impacto_corte, esforco_corte
@@ -134,12 +134,12 @@ if not df_projetos.empty:
     st.dataframe(df_classificado[colunas_para_exibir].rename(columns=lambda c: c.replace('_', ' ').title()).round(2))
 
     st.subheader("Matriz de Priorização")
-    fig = px.scatter(df_classificado, x="Nota Esforço", y="Nota Impacto", text="nome_projeto", color="Classificação", color_discrete_map={'Prioridade Legal': '#8A2BE2', 'Quick Wins': '#32CD32', 'Projetos Maiores': '#1E90FF', 'Fill-Ins': '#FFD700', 'Reavaliar': '#FF4500'}, size_max=40, hover_data=colunas_para_exibir)
+    fig = px.scatter(df_classificado, x="Nota Esforço", y="Nota Impacto", text="nome_projeto", color="Classificação", color_discrete_map={'Prioridade Legal': '#8A2BE2', 'Ganho rápido': '#32CD32', 'Projetos Maiores': '#1E90FF', 'Projetos Pequenos': '#FFD700', 'Reavaliar': '#FF4500'}, size_max=40, hover_data=colunas_para_exibir)
     fig.add_vline(x=esf_corte, line_dash="dash", line_color="gray")
     fig.add_hline(y=imp_corte, line_dash="dash", line_color="gray")
-    fig.add_annotation(x=esf_corte*0.5, y=imp_corte*0.5, text="Fill-Ins", showarrow=False, font=dict(color="gray", size=10))
+    fig.add_annotation(x=esf_corte*0.5, y=imp_corte*0.5, text="Projetos Pequenos", showarrow=False, font=dict(color="gray", size=10))
     fig.add_annotation(x=esf_corte*1.5, y=imp_corte*0.5, text="Reavaliar", showarrow=False, font=dict(color="gray", size=10))
-    fig.add_annotation(x=esf_corte*0.5, y=imp_corte*1.5, text="Quick Wins", showarrow=False, font=dict(color="gray", size=10))
+    fig.add_annotation(x=esf_corte*0.5, y=imp_corte*1.5, text="Ganho rápido", showarrow=False, font=dict(color="gray", size=10))
     fig.add_annotation(x=esf_corte*1.5, y=imp_corte*1.5, text="Projetos Maiores", showarrow=False, font=dict(color="gray", size=10))
     fig.update_traces(textposition='top center')
     fig.update_layout(xaxis_title="Esforço →", yaxis_title="Impacto →", legend_title="Classificação", height=600)
