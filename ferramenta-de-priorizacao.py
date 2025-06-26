@@ -1,4 +1,4 @@
-# Ferramenta de Priorização
+# app.py (versão com autenticação robusta e definitiva)
 
 import streamlit as st
 import pandas as pd
@@ -8,39 +8,31 @@ import gspread
 from google.oauth2.service_account import Credentials
 import io
 
-# Conexão com a planilha do Google
-
+# --- Função de Conexão com o Google Sheets (Reestruturada) ---
 @st.cache_resource(ttl=600)
 def connect_gsheets():
-    """Conecta-se ao Google Sheets usando o método de autenticação explícito e robusto."""
+    """Conecta-se ao Google Sheets usando o método de autenticação explícito."""
     try:
-        # Define os "escopos" ou permissões que nossa aplicação precisa
         scopes = [
             "https://www.googleapis.com/auth/spreadsheets",
             "https://www.googleapis.com/auth/drive",
         ]
         creds_dict = st.secrets["gcp_service_account"].to_dict()
-        
-        # Cria o objeto de credenciais a partir dos segredos
         creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
-        
-        # Autoriza o gspread com as credenciais criadas
         sa = gspread.authorize(creds)
-        
-        # Abre a folha de cálculo
-        sheet = sa.open("Base de Dados - Ferramenta de Priorização") 
+        sheet = sa.open("Base de Dados - Ferramenta de Priorização")
         return sheet.worksheet("Sheet1")
     except Exception as e:
         st.error(f"Erro Crítico ao conectar ao Google Sheets: {e}")
-        st.info("Verifique se as APIs 'Google Drive API' e 'Google Sheets API' estão ativas na sua conta Google Cloud e se a folha de cálculo foi partilhada com o email da conta de serviço.")
+        st.info("Verifique se as APIs 'Google Drive API' e 'Google Sheets API' estão ativas e se a folha foi partilhada com o email da conta de serviço.")
         return None
 
+# --- Funções de Leitura e Gravação ---
 @st.cache_data(ttl=300)
 def get_data_from_gsheets():
-    """Lê todos os projetos da folha de cálculo."""
+    """Conecta e lê os dados, retornando um DataFrame."""
     worksheet = connect_gsheets()
     if worksheet is None: return pd.DataFrame()
-    
     try:
         data = worksheet.get_all_records()
         df = pd.DataFrame(data)
@@ -62,11 +54,11 @@ def gravar_projeto(data):
             worksheet.append_row(new_row_ordered)
             return True
         except Exception as e:
-            st.error(f"Erro ao gravar os dados na folha de cálculo: {e}")
+            st.error(f"Erro ao gravar os dados: {e}")
             return False
     return False
 
-# --- Dicionários de Mapeamento (Critério -> Nota) ---
+# --- Dicionários de Mapeamento e Funções de Cálculo ---
 MAPA_ALINHAMENTO = {"Desconectado da estratégia da empresa": 1, "Levemente conectado a temas operacionais": 2, "Conectado a um objetivo estratégico secundário": 3, "Atende diretamente um objetivo estratégico prioritário": 4, "É essencial para a execução de uma frente estratégica central": 5}
 MAPA_EBITDA = {"Nenhum impacto financeiro estimável": 1, "Impacto operacional localizado e difícil de quantificar": 2, "Geração de eficiência escalável ou corte de custos moderado": 3, "Aumento de receita ou economia > R$ 500k/ano": 4, "Impacto financeiro direto, claro, e potencial multimilionário": 5}
 MAPA_COMPLEXIDADE = {"Solução simples, com dados e lógica prontos": 1, "Requer pequenas transformações ou integrações": 2, "Demanda uso de modelos básicos, múltiplas fontes": 3, "Envolve arquitetura complexa, pipelines robustos": 4, "Alto risco técnico, dependência de tecnologias emergentes": 5}
@@ -96,6 +88,7 @@ def to_excel(df):
         df.to_excel(writer, index=False, sheet_name='Priorizacao_Projetos')
     return output.getvalue()
 
+# --- Estrutura Principal da Aplicação ---
 def main():
     st.set_page_config(page_title="Matriz de Priorização de Projetos", page_icon="📊", layout="wide")
     st.title("Matriz de Priorização de Projetos")
@@ -127,10 +120,12 @@ def main():
     df_projetos = get_data_from_gsheets()
 
     if not df_projetos.empty:
-        df_classificado = df_projetos.copy() # Os dados já vêm calculados do processamento
+        # Os cálculos agora são feitos ANTES de gravar, então lemos os dados já calculados
+        df_classificado = df_projetos.copy()
         st.subheader("Tabela de Priorização")
         colunas_para_exibir = ["nome_projeto", "demanda_legal", "Nota Impacto", "Nota Esforço", "Classificação"]
         st.dataframe(df_classificado[colunas_para_exibir].rename(columns=lambda c: c.replace('_', ' ').title()).round(2))
+        
         st.subheader("Matriz de Priorização")
         ponto_corte = 2.5
         fig = px.scatter(df_classificado, x="Nota Esforço", y="Nota Impacto", text="nome_projeto", color="Classificação", color_discrete_map={'Prioridade Legal': '#8A2BE2', 'Ganhos Rápidos': '#32CD32', 'Projetos Maiores': '#1E90FF', 'Projetos Rápidos': '#FFD700', 'Reavaliar': '#FF4500'}, size_max=40, hover_data=colunas_para_exibir)
@@ -145,6 +140,7 @@ def main():
         fig.update_yaxes(range=[0, 6])
         fig.update_layout(xaxis_title="Esforço →", yaxis_title="Impacto →", legend_title="Classificação", height=600)
         st.plotly_chart(fig, use_container_width=True)
+
         st.subheader("Exportar Dados")
         excel_data = to_excel(df_classificado)
         st.download_button(label="📥 Download como Excel", data=excel_data, file_name="matriz_priorizacao_completa.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
