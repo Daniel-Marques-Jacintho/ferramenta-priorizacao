@@ -5,3 +5,4 @@ numpy
 openpyxl
 gspread
 gspread-dataframe
+google-auth-oauthlib
