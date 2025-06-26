@@ -1,4 +1,4 @@
-# app.py (versão com ajuste final na cor da fonte do botão)
+# app.py (versão com seleção padrão ajustada para o primeiro item)
 
 import streamlit as st
 import pandas as pd
@@ -22,11 +22,11 @@ st.markdown("""
     [data-testid="stSidebar"] {
         background-color: #f79433; /* Cor secundária (laranja) */
     }
-    /* AQUI ESTÁ A CORREÇÃO: Aplica a cor do texto apenas aos títulos e labels, não a tudo */
+    /* Cor do texto geral na barra lateral (títulos, labels) */
     [data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3, [data-testid="stSidebar"] .st-emotion-cache-1g6i6b0, [data-testid="stSidebar"] .st-emotion-cache-taue2i {
         color: #191e50; /* Cor primária para o texto */
     }
-    /* Cor do texto DENTRO dos campos de input para preto, garantindo visibilidade */
+    /* Cor do texto DENTRO dos campos de input para preto */
     [data-testid="stSidebar"] input, [data-testid="stSidebar"] textarea {
         color: #000000 !important;
     }
@@ -34,7 +34,7 @@ st.markdown("""
     h1, h2, h3 {
         color: #191e50; /* Cor primária */
     }
-    /* Estilo dos botões, que agora não será mais sobrescrito */
+    /* Estilo dos botões */
     .stButton>button {
         color: #FFFFFF; /* Fonte branca */
         background-color: #191e50; /* Fundo azul (cor primária) */
@@ -195,13 +195,14 @@ def main():
     nome = st.sidebar.text_input("Nome do Projeto", value=project_to_edit.get('nome_projeto', ''))
     demanda_legal = st.sidebar.checkbox("É uma Demanda Legal?", value=project_to_edit.get('demanda_legal', False))
     st.sidebar.subheader("Critérios de Impacto")
-    alinhamento = st.sidebar.radio("Alinhamento estratégico", options=options_alinhamento, index=options_alinhamento.index(project_to_edit.get('alinhamento', options_alinhamento[2])))
-    ebitda = st.sidebar.radio("Impacto em EBITDA", options=options_ebitda, index=options_ebitda.index(project_to_edit.get('ebitda', options_ebitda[2])))
+    # AQUI ESTÁ A ALTERAÇÃO: index=0 para selecionar o primeiro item por padrão
+    alinhamento = st.sidebar.radio("Alinhamento estratégico", options=options_alinhamento, index=options_alinhamento.index(project_to_edit.get('alinhamento', options_alinhamento[0])))
+    ebitda = st.sidebar.radio("Impacto em EBITDA", options=options_ebitda, index=options_ebitda.index(project_to_edit.get('ebitda', options_ebitda[0])))
     st.sidebar.subheader("Critérios de Esforço")
-    complexidade = st.sidebar.radio("Complexidade técnica", options=options_complexidade, index=options_complexidade.index(project_to_edit.get('complexidade', options_complexidade[2])))
-    custo = st.sidebar.radio("Custo (Tempo e Recursos)", options=options_custo, index=options_custo.index(project_to_edit.get('custo', options_custo[2])))
-    engajamento = st.sidebar.radio("Engajamento da Área", options=options_engajamento, index=options_engajamento.index(project_to_edit.get('engajamento', options_engajamento[2])))
-    dependencia = st.sidebar.radio("Dependência de Fornecedores", options=options_dependencia, index=options_dependencia.index(project_to_edit.get('dependencia', options_dependencia[2])))
+    complexidade = st.sidebar.radio("Complexidade técnica", options=options_complexidade, index=options_complexidade.index(project_to_edit.get('complexidade', options_complexidade[0])))
+    custo = st.sidebar.radio("Custo (Tempo e Recursos)", options=options_custo, index=options_custo.index(project_to_edit.get('custo', options_custo[0])))
+    engajamento = st.sidebar.radio("Engajamento da Área", options=options_engajamento, index=options_engajamento.index(project_to_edit.get('engajamento', options_engajamento[0])))
+    dependencia = st.sidebar.radio("Dependência de Fornecedores", options=options_dependencia, index=options_dependencia.index(project_to_edit.get('dependencia', options_dependencia[0])))
 
     col1, col2 = st.sidebar.columns(2)
     with col1:
