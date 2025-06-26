@@ -1,4 +1,4 @@
-# app.py (versão com a correção definitiva do cache e UnhashableParamError)
+# app.py (versão com a correção final e definitiva do cache)
 
 import streamlit as st
 import pandas as pd
@@ -13,8 +13,7 @@ import io
 def get_data_from_gsheets():
     """
     Função única e robusta para conectar e ler os dados do Google Sheets.
-    Esta função é cacheada, o que significa que ela só será executada 
-    a cada 5 minutos ou quando o cache for limpo.
+    Esta função é cacheada e, como não recebe argumentos, evita o erro 'UnhashableParamError'.
     """
     try:
         creds_dict = st.secrets["gcp_service_account"].to_dict()
