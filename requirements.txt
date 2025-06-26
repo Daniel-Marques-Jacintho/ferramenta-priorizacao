@@ -3,4 +3,5 @@ pandas
 plotly
 numpy
 openpyxl
-SharePlum
+gspread
+gspread-dataframe
