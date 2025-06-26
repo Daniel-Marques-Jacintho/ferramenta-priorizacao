@@ -1,4 +1,4 @@
-# app.py (versão com fonte personalizada Montserrat)
+# app.py (versão com ajuste final na cor do botão Salvar)
 
 import streamlit as st
 import pandas as pd
@@ -11,26 +11,18 @@ import io
 # --- Configuração da Página e Tema Visual ---
 st.set_page_config(page_title="Matriz de Priorização de Projetos", page_icon="📊", layout="wide", initial_sidebar_state="expanded")
 
-# Injeta CSS para aplicar o tema de cores e a NOVA FONTE
+# Injeta CSS para aplicar o tema de cores personalizado
 st.markdown("""
 <style>
-    /* Importa a fonte Montserrat do Google Fonts */
-    @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap');
-
-    /* Aplica a nova fonte a todos os elementos da aplicação */
-    html, body, [class*="st-"], [class*="css-"] {
-        font-family: 'Montserrat', sans-serif;
-    }
-
     /* Cor de fundo da aplicação principal */
     .main {
         background-color: #FFFFFF;
     }
     /* Cor de fundo da barra lateral */
     [data-testid="stSidebar"] {
-        background-color: #f79433; /* Cor secundária */
+        background-color: #f79433; /* Cor secundária (laranja) */
     }
-    /* Cor do texto na barra lateral */
+    /* Cor do texto geral na barra lateral (títulos, labels) */
     [data-testid="stSidebar"] * {
         color: #191e50; /* Cor primária para o texto */
     }
@@ -41,20 +33,18 @@ st.markdown("""
     /* Cor dos títulos principais na página */
     h1, h2, h3 {
         color: #191e50; /* Cor primária */
-        font-family: 'Montserrat', sans-serif; /* Garante que os títulos também usem a fonte */
     }
-    /* Estilo dos botões */
+    /* AQUI ESTÁ A CORREÇÃO: Estilo dos botões */
     .stButton>button {
-        color: #FFFFFF;
-        background-color: #191e50; /* Cor primária nos botões */
+        color: #FFFFFF; /* Fonte branca */
+        background-color: #191e50; /* Fundo azul (cor primária) */
         border: none;
         border-radius: 5px;
         padding: 10px 24px;
         width: 100%;
-        font-family: 'Montserrat', sans-serif;
     }
     .stButton>button:hover {
-        background-color: #2b3380;
+        background-color: #2b3380; /* Um tom mais claro do azul para o hover */
         color: #FFFFFF;
     }
     /* Estilo dos expanders */
@@ -62,7 +52,6 @@ st.markdown("""
         font-size: 1.1em !important;
         font-weight: bold !important;
         color: #191e50 !important;
-        font-family: 'Montserrat', sans-serif;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -217,7 +206,7 @@ def main():
     col1, col2 = st.sidebar.columns(2)
     with col1:
         if st.button("Salvar"):
-            dados_brutos = {'nome_projeto': nome, 'demanda_legal': demanda_legal, 'alinhamento': alinhamento, 'ebitda': ebitda, 'complexidade': complexidade, 'custo': custo, 'engajamento': engajamento, 'dependencia': dependencia}
+            dados_brutos = {'ID': st.session_state.editing_project_id, 'nome_projeto': nome, 'demanda_legal': demanda_legal, 'alinhamento': alinhamento, 'ebitda': ebitda, 'complexidade': complexidade, 'custo': custo, 'engajamento': engajamento, 'dependencia': dependencia}
             
             df_temp = pd.DataFrame([dados_brutos])
             projeto_final = processar_dataframe(df_temp).to_dict('records')[0]
@@ -225,7 +214,6 @@ def main():
             worksheet = connect_gsheets()
             if worksheet:
                 if st.session_state.editing_project_id:
-                    projeto_final['ID'] = st.session_state.editing_project_id
                     if update_projeto(worksheet, st.session_state.editing_project_id, projeto_final):
                         st.success("Projeto atualizado!")
                         st.session_state.editing_project_id = None
