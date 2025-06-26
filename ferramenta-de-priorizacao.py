@@ -102,7 +102,7 @@ def to_excel(df):
 
 # Estrutura da aplicação
 def main():
-    st.set_page_config(page_title="Matriz de Priorização de Projetos", page_icon="RANDS", layout="wide")
+    st.set_page_config(page_title="Matriz de Priorização de Projetos", page_icon="🔵", layout="wide")
     st.title("Matriz de Priorização de Projetos")
     st.markdown("Selecione a descrição que melhor se adequa ao projeto em cada critério.")
 
