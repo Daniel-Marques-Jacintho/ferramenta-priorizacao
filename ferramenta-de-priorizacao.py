@@ -1,4 +1,4 @@
-# app.py (versão com correção da cor do texto nos inputs)
+# app.py (versão com ajustes finais de tema e gráfico)
 
 import streamlit as st
 import pandas as pd
@@ -18,34 +18,33 @@ st.markdown("""
     .main {
         background-color: #FFFFFF;
     }
-    /* Cor de fundo da barra lateral */
+    /* CORREÇÃO: Cor de fundo da barra lateral para laranja */
     [data-testid="stSidebar"] {
-        background-color: #191e50; /* Cor primária */
+        background-color: #f79433; /* Cor secundária */
     }
-    /* Cor do texto na barra lateral (títulos, labels, etc.) */
-    [data-testid="stSidebar"] .st-emotion-cache-1g6i6b0, [data-testid="stSidebar"] .st-emotion-cache-taue2i {
-        color: #FFFFFF;
+    /* Cor do texto geral na barra lateral (títulos, labels) */
+    [data-testid="stSidebar"] * {
+        color: #191e50; /* Cor primária para o texto, para contraste com o laranja */
     }
-    /* AQUI ESTÁ A CORREÇÃO: Define a cor do texto DENTRO dos campos de input e text area */
-    [data-testid="stSidebar"] .st-emotion-cache-1629p8f, [data-testid="stSidebar"] .st-emotion-cache-1ghh1go {
-        color: #191e50; /* Cor primária para o texto, garantindo contraste */
-        background-color: #FFFFFF; /* Fundo branco para o campo */
+    /* CORREÇÃO: Cor do texto DENTRO dos campos de input para preto */
+    [data-testid="stSidebar"] input, [data-testid="stSidebar"] textarea {
+        color: #000000 !important;
     }
-    /* Cor dos títulos principais */
+    /* Cor dos títulos principais na página */
     h1, h2, h3 {
         color: #191e50; /* Cor primária */
     }
     /* Estilo dos botões */
     .stButton>button {
         color: #FFFFFF;
-        background-color: #f79433; /* Cor secundária */
+        background-color: #191e50; /* Cor primária nos botões */
         border: none;
         border-radius: 5px;
         padding: 10px 24px;
-        width: 100%; /* Faz o botão ocupar a largura da coluna */
+        width: 100%;
     }
     .stButton>button:hover {
-        background-color: #d87e2a; /* Um tom mais escuro para o hover */
+        background-color: #2b3380; /* Um tom mais claro da cor primária para o hover */
         color: #FFFFFF;
     }
     /* Estilo dos expanders */
@@ -140,22 +139,18 @@ MAPA_ENGAJAMENTO = {"Área requisitante ausente ou passiva": 1, "Pouco engajamen
 MAPA_DEPENDENCIA = {"Nenhum fornecedor envolvido. Tudo interno": 1, "Fornecedor envolvido, mas contrato vigente e serviços maduros": 2, "Alguma dependência de entregas de terceiros, com SLA razoável": 3, "Dependência crítica de fornecedor específico, sem redundância": 4, "Fornecedores múltiplos, novos ou instáveis, com risco de travamento": 5}
 
 def processar_dataframe(df):
-    """Aplica todos os cálculos e classificações a um DataFrame inteiro."""
     if df.empty: return df
 
-    # Mapeia os inputs de texto para scores numéricos
-    df['score_alinhamento'] = df['alinhamento'].map(MAPA_ALINHAMENTO)
-    df['score_ebitda'] = df['ebitda'].map(MAPA_EBITDA)
-    df['score_complexidade'] = df['complexidade'].map(MAPA_COMPLEXIDADE)
-    df['score_custo'] = df['custo'].map(MAPA_CUSTO)
-    df['score_engajamento'] = 6 - df['engajamento'].map(MAPA_ENGAJAMENTO)
-    df['score_dependencia'] = df['dependencia'].map(MAPA_DEPENDENCIA)
+    mapas = {'alinhamento': MAPA_ALINHAMENTO, 'ebitda': MAPA_EBITDA, 'complexidade': MAPA_COMPLEXIDADE, 'custo': MAPA_CUSTO, 'dependencia': MAPA_DEPENDENCIA}
+    for col_db, mapa in mapas.items():
+        if col_db in df.columns:
+            df[f'score_{col_db}'] = df[col_db].map(mapa)
+    if 'engajamento' in df.columns:
+        df['score_engajamento'] = 6 - df['engajamento'].map(MAPA_ENGAJAMENTO)
 
-    # Calcula as notas de Impacto e Esforço
     df['Nota Impacto'] = df[['score_alinhamento', 'score_ebitda']].mean(axis=1)
     df['Nota Esforço'] = df[['score_complexidade', 'score_custo', 'score_engajamento', 'score_dependencia']].mean(axis=1)
     
-    # Classifica os projetos
     ponto_corte = 2.5
     if 'demanda_legal' not in df.columns: df['demanda_legal'] = False
     
@@ -181,13 +176,16 @@ def main():
     
     df_projetos = get_data_from_gsheets()
     
-    # --- Formulário na Barra Lateral ---
     st.sidebar.header(f"{'Editar Projeto' if st.session_state.editing_project_id else 'Adicionar Novo Projeto'}")
 
     project_to_edit = {}
     if st.session_state.editing_project_id:
-        project_to_edit = df_projetos[df_projetos['ID'] == st.session_state.editing_project_id].to_dict('records')[0]
-    
+        # Garante que o dataframe não está vazio antes de tentar filtrar
+        if not df_projetos.empty:
+            edit_df = df_projetos[df_projetos['ID'] == st.session_state.editing_project_id]
+            if not edit_df.empty:
+                project_to_edit = edit_df.to_dict('records')[0]
+
     options_alinhamento = list(MAPA_ALINHAMENTO.keys())
     options_ebitda = list(MAPA_EBITDA.keys())
     options_complexidade = list(MAPA_COMPLEXIDADE.keys())
@@ -209,15 +207,15 @@ def main():
     col1, col2 = st.sidebar.columns(2)
     with col1:
         if st.button("Salvar"):
-            dados_brutos = {'ID': st.session_state.editing_project_id, 'nome_projeto': nome, 'demanda_legal': demanda_legal, 'alinhamento': alinhamento, 'ebitda': ebitda, 'complexidade': complexidade, 'custo': custo, 'engajamento': engajamento, 'dependencia': dependencia}
+            dados_brutos = {'nome_projeto': nome, 'demanda_legal': demanda_legal, 'alinhamento': alinhamento, 'ebitda': ebitda, 'complexidade': complexidade, 'custo': custo, 'engajamento': engajamento, 'dependencia': dependencia}
             
             df_temp = pd.DataFrame([dados_brutos])
-            df_processado = processar_dataframe(df_temp)
-            projeto_final = df_processado.to_dict('records')[0]
+            projeto_final = processar_dataframe(df_temp).to_dict('records')[0]
             
             worksheet = connect_gsheets()
             if worksheet:
                 if st.session_state.editing_project_id:
+                    projeto_final['ID'] = st.session_state.editing_project_id
                     if update_projeto(worksheet, st.session_state.editing_project_id, projeto_final):
                         st.success("Projeto atualizado!")
                         st.session_state.editing_project_id = None
@@ -261,13 +259,17 @@ def main():
         fig = px.scatter(df_classificado, x="Nota Esforço", y="Nota Impacto", text="nome_projeto", color="Classificação", color_discrete_map={'Prioridade Legal': '#8A2BE2', 'Ganhos Rápidos': '#32CD32', 'Projetos Maiores': '#1E90FF', 'Projetos Rápidos': '#f79433', 'Reavaliar': '#FF4500'}, size_max=40)
         fig.add_vline(x=ponto_corte, line_dash="dash", line_color="gray")
         fig.add_hline(y=ponto_corte, line_dash="dash", line_color="gray")
+        
+        # Posições das anotações ajustadas para a nova escala
         fig.add_annotation(x=ponto_corte/2, y=ponto_corte/2, text="Projetos Rápidos", showarrow=False, font=dict(color="gray", size=10))
-        fig.add_annotation(x=(ponto_corte + 6) / 2, y=ponto_corte/2, text="Reavaliar", showarrow=False, font=dict(color="gray", size=10))
-        fig.add_annotation(x=ponto_corte/2, y=(ponto_corte + 6) / 2, text="Ganhos Rápidos", showarrow=False, font=dict(color="gray", size=10))
-        fig.add_annotation(x=(ponto_corte + 6) / 2, y=(ponto_corte + 6) / 2, text="Projetos Maiores", showarrow=False, font=dict(color="gray", size=10))
+        fig.add_annotation(x=(ponto_corte + 5.1) / 2, y=ponto_corte/2, text="Reavaliar", showarrow=False, font=dict(color="gray", size=10))
+        fig.add_annotation(x=ponto_corte/2, y=(ponto_corte + 5.1) / 2, text="Ganhos Rápidos", showarrow=False, font=dict(color="gray", size=10))
+        fig.add_annotation(x=(ponto_corte + 5.1) / 2, y=(ponto_corte + 5.1) / 2, text="Projetos Maiores", showarrow=False, font=dict(color="gray", size=10))
+        
         fig.update_traces(textposition='top center')
-        fig.update_xaxes(range=[0, 6])
-        fig.update_yaxes(range=[0, 6])
+        # Escala dos eixos ajustada
+        fig.update_xaxes(range=[0, 5.1])
+        fig.update_yaxes(range=[0, 5.1])
         fig.update_layout(xaxis_title="Esforço →", yaxis_title="Impacto →", legend_title="Classificação", height=600)
         st.plotly_chart(fig, use_container_width=True)
 
