@@ -1,4 +1,4 @@
-# app.py (versão com a correção final do ValueError e lógica simplificada)
+# app.py (versão com correção da cor do texto nos inputs)
 
 import streamlit as st
 import pandas as pd
@@ -10,15 +10,50 @@ import io
 
 # --- Configuração da Página e Tema Visual ---
 st.set_page_config(page_title="Matriz de Priorização de Projetos", page_icon="📊", layout="wide", initial_sidebar_state="expanded")
+
+# Injeta CSS para aplicar o tema de cores personalizado
 st.markdown("""
 <style>
-    .main { background-color: #FFFFFF; }
-    [data-testid="stSidebar"] { background-color: #191e50; }
-    [data-testid="stSidebar"] * { color: #FFFFFF; }
-    h1, h2, h3 { color: #191e50; }
-    .stButton>button { color: #FFFFFF; background-color: #f79433; border: none; border-radius: 5px; padding: 10px 24px; }
-    .stButton>button:hover { background-color: #d87e2a; color: #FFFFFF; }
-    .st-expander-header { font-size: 1.1em !important; font-weight: bold !important; color: #191e50 !important; }
+    /* Cor de fundo da aplicação principal */
+    .main {
+        background-color: #FFFFFF;
+    }
+    /* Cor de fundo da barra lateral */
+    [data-testid="stSidebar"] {
+        background-color: #191e50; /* Cor primária */
+    }
+    /* Cor do texto na barra lateral (títulos, labels, etc.) */
+    [data-testid="stSidebar"] .st-emotion-cache-1g6i6b0, [data-testid="stSidebar"] .st-emotion-cache-taue2i {
+        color: #FFFFFF;
+    }
+    /* AQUI ESTÁ A CORREÇÃO: Define a cor do texto DENTRO dos campos de input e text area */
+    [data-testid="stSidebar"] .st-emotion-cache-1629p8f, [data-testid="stSidebar"] .st-emotion-cache-1ghh1go {
+        color: #191e50; /* Cor primária para o texto, garantindo contraste */
+        background-color: #FFFFFF; /* Fundo branco para o campo */
+    }
+    /* Cor dos títulos principais */
+    h1, h2, h3 {
+        color: #191e50; /* Cor primária */
+    }
+    /* Estilo dos botões */
+    .stButton>button {
+        color: #FFFFFF;
+        background-color: #f79433; /* Cor secundária */
+        border: none;
+        border-radius: 5px;
+        padding: 10px 24px;
+        width: 100%; /* Faz o botão ocupar a largura da coluna */
+    }
+    .stButton>button:hover {
+        background-color: #d87e2a; /* Um tom mais escuro para o hover */
+        color: #FFFFFF;
+    }
+    /* Estilo dos expanders */
+    .st-expander-header {
+        font-size: 1.1em !important;
+        font-weight: bold !important;
+        color: #191e50 !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -174,9 +209,8 @@ def main():
     col1, col2 = st.sidebar.columns(2)
     with col1:
         if st.button("Salvar"):
-            dados_brutos = {'nome_projeto': nome, 'demanda_legal': demanda_legal, 'alinhamento': alinhamento, 'ebitda': ebitda, 'complexidade': complexidade, 'custo': custo, 'engajamento': engajamento, 'dependencia': dependencia}
+            dados_brutos = {'ID': st.session_state.editing_project_id, 'nome_projeto': nome, 'demanda_legal': demanda_legal, 'alinhamento': alinhamento, 'ebitda': ebitda, 'complexidade': complexidade, 'custo': custo, 'engajamento': engajamento, 'dependencia': dependencia}
             
-            # Processa a linha única para obter todos os campos calculados
             df_temp = pd.DataFrame([dados_brutos])
             df_processado = processar_dataframe(df_temp)
             projeto_final = df_processado.to_dict('records')[0]
@@ -184,7 +218,6 @@ def main():
             worksheet = connect_gsheets()
             if worksheet:
                 if st.session_state.editing_project_id:
-                    projeto_final['ID'] = st.session_state.editing_project_id
                     if update_projeto(worksheet, st.session_state.editing_project_id, projeto_final):
                         st.success("Projeto atualizado!")
                         st.session_state.editing_project_id = None
@@ -203,7 +236,6 @@ def main():
 
     # --- Exibição dos Resultados ---
     if not df_projetos.empty:
-        # Aplica os cálculos a todos os dados lidos para exibição consistente
         df_classificado = processar_dataframe(df_projetos.copy())
 
         st.subheader("Lista de Projetos")
