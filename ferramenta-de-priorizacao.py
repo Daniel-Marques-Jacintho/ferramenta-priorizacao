@@ -8,6 +8,38 @@ import gspread
 from gspread_dataframe import set_with_dataframe
 import io
 
+# ===================================================================
+# INÍCIO DO CÓDIGO DE DEPURAÇÃO TEMPORÁRIO
+# ===================================================================
+
+st.header("⚠️ Depuração de Segredos (Remover Depois!)")
+try:
+    # Tenta aceder à secção de segredos
+    secrets_dict = st.secrets["gcp_service_account"]
+    st.success("A secção [gcp_service_account] foi encontrada nos segredos!")
+    
+    # Verifica se a chave privada existe
+    if "private_key" in secrets_dict:
+        st.success("O campo 'private_key' foi encontrado!")
+        st.text("Início da chave privada (primeiros 50 caracteres):")
+        # Mostra o início da chave para confirmar que não está vazia
+        st.code(secrets_dict["private_key"][:50] + "...")
+    else:
+        st.error("ERRO CRÍTICO: O campo 'private_key' NÃO foi encontrado no dicionário de segredos!")
+
+    st.text("Todos os campos encontrados nos segredos:")
+    # Escreve todos os nomes de campos que a app encontrou
+    st.write(list(secrets_dict.keys()))
+
+except Exception as e:
+    st.error(f"Não foi possível ler os segredos. Erro: {e}")
+    st.warning("Verifique se a secção [gcp_service_account] existe no seu painel de Segredos na Streamlit Cloud.")
+
+
+# ===================================================================
+# FIM DO CÓDIGO DE DEPURAÇÃO
+# ===================================================================
+
 # --- Configuração da Conexão com o Google Sheets ---
 
 @st.cache_resource(ttl=600)
