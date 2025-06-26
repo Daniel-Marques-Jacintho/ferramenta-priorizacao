@@ -1,4 +1,4 @@
-# app.py (versão com a correção do cache - UnhashableParamError)
+# app.py (versão com a correção do NameError)
 
 import streamlit as st
 import pandas as pd
@@ -9,13 +9,14 @@ import io
 
 # --- Configuração da Conexão com o Google Sheets ---
 
-def get_worksheet():
-    """Conecta-se ao Google Sheets e retorna o objeto da worksheet. NÃO É CACHEADA."""
+@st.cache_resource(ttl=600)
+def connect_gsheets():
+    """Conecta-se ao Google Sheets e retorna o objeto da worksheet."""
     try:
         creds_dict = st.secrets["gcp_service_account"].to_dict()
         creds_dict['private_key'] = creds_dict['private_key'].replace('\\n', '\n')
         sa = gspread.service_account_from_dict(creds_dict)
-        sheet = sa.open("Base de Dados - Ferramenta de Priorização")
+        sheet = sa.open("Base de Dados - Ferramenta de Priorização") 
         return sheet.worksheet("Sheet1")
     except Exception as e:
         st.error(f"Erro ao conectar ao Google Sheets: {e}")
@@ -46,7 +47,6 @@ def gravar_projeto(data):
         return True
     return False
 
-# (O resto do seu código, dicionários de mapa, cálculos e interface, permanece o mesmo)
 # --- Dicionários de Mapeamento (Critério -> Nota) ---
 MAPA_ALINHAMENTO = {"Desconectado da estratégia da empresa": 1, "Levemente conectado a temas operacionais": 2, "Conectado a um objetivo estratégico secundário": 3, "Atende diretamente um objetivo estratégico prioritário": 4, "É essencial para a execução de uma frente estratégica central": 5}
 MAPA_EBITDA = {"Nenhum impacto financeiro estimável": 1, "Impacto operacional localizado e difícil de quantificar": 2, "Geração de eficiência escalável ou corte de custos moderado": 3, "Aumento de receita ou economia > R$ 500k/ano": 4, "Impacto financeiro direto, claro, e potencial multimilionário": 5}
@@ -80,7 +80,14 @@ def calcular_notas(df):
 
 def classificar_projetos(df):
     ponto_corte = 2.5
-    conditions = [(df['demanda_legal'] == True), (df['Nota Impacto'] >= ponto_corte) & (df['Nota Esforço'] < ponto_corte), (df['Nota Impacto'] >= ponto_corte) & (df['Nota Esforço'] >= ponto_corte), (df['Nota Impacto'] < ponto_corte) & (df['Nota Esforço'] < ponto_corte), (df['Nota Impacto'] < ponto_crote) & (df['Nota Esforço'] >= ponto_corte)]
+    # AQUI ESTÁ A PRIMEIRA CORREÇÃO
+    conditions = [
+        (df['demanda_legal'] == True),
+        (df['Nota Impacto'] >= ponto_corte) & (df['Nota Esforço'] < ponto_corte),
+        (df['Nota Impacto'] >= ponto_corte) & (df['Nota Esforço'] >= ponto_corte),
+        (df['Nota Impacto'] < ponto_corte) & (df['Nota Esforço'] < ponto_corte),
+        (df['Nota Impacto'] < ponto_corte) & (df['Nota Esforço'] >= ponto_corte)
+    ]
     choices = ['Prioridade Legal', 'Ganhos Rápidos', 'Projetos Maiores', 'Projetos Rápidos', 'Reavaliar']
     df['Classificação'] = np.select(conditions, choices, default='N/A')
     return df, ponto_corte, ponto_corte
@@ -114,7 +121,7 @@ if submitted:
     novo_projeto_data = {"Nome do Projeto": nome, "Demanda Legal": demanda_legal, "Alinhamento Estratégico": alinhamento, "Impacto em EBITDA": ebitda, "Complexidade Técnica": complexidade, "Custo (Tempo e Recursos)": custo, "Engajamento da Área Requisitante": engajamento, "Dependência de Fornecedores": dependencia}
     if gravar_projeto(novo_projeto_data):
         st.sidebar.success("Projeto adicionado com sucesso ao Google Sheets!")
-        st.cache_data.clear() # Limpa o cache para recarregar os dados na próxima interação
+        st.cache_data.clear()
     else:
         st.sidebar.error("Falha ao gravar no Google Sheets.")
 
@@ -133,8 +140,9 @@ if not df_projetos.empty:
     fig = px.scatter(df_classificado, x="Nota Esforço", y="Nota Impacto", text="nome_projeto", color="Classificação", color_discrete_map={'Prioridade Legal': '#8A2BE2', 'Ganhos Rápidos': '#32CD32', 'Projetos Maiores': '#1E90FF', 'Projetos Rápidos': '#FFD700', 'Reavaliar': '#FF4500'}, size_max=40, hover_data=colunas_para_exibir)
     fig.add_vline(x=esf_corte, line_dash="dash", line_color="gray")
     fig.add_hline(y=imp_corte, line_dash="dash", line_color="gray")
+    # AQUI ESTÁ A SEGUNDA CORREÇÃO
     fig.add_annotation(x=esf_corte/2, y=imp_corte/2, text="Projetos Rápidos", showarrow=False, font=dict(color="gray", size=10))
-    fig.add_annotation(x=(esf_corte + 6) / 2, y=imp_crote/2, text="Reavaliar", showarrow=False, font=dict(color="gray", size=10))
+    fig.add_annotation(x=(esf_corte + 6) / 2, y=imp_corte/2, text="Reavaliar", showarrow=False, font=dict(color="gray", size=10))
     fig.add_annotation(x=esf_corte/2, y=(imp_corte + 6) / 2, text="Ganhos Rápidos", showarrow=False, font=dict(color="gray", size=10))
     fig.add_annotation(x=(esf_corte + 6) / 2, y=(imp_corte + 6) / 2, text="Projetos Maiores", showarrow=False, font=dict(color="gray", size=10))
     fig.update_traces(textposition='top center')
@@ -145,6 +153,6 @@ if not df_projetos.empty:
 
     st.subheader("Exportar Dados")
     excel_data = to_excel(df_classificado)
-    st.download_button(label="📥 Download como Excel", data=excel_data, file_name="matriz_priorizacao_detalhada.xlsx", mime="application/vnd.openxmlformats-officedocument.sheetml.sheet")
+    st.download_button(label="📥 Download como Excel", data=excel_data, file_name="matriz_priorizacao_detalhada.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 else:
     st.info("Nenhum projeto foi adicionado. Adicione o primeiro usando o formulário na barra lateral.")
