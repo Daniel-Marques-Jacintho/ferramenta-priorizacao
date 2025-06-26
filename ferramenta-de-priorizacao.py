@@ -1,4 +1,4 @@
-# app.py (versão com autenticação robusta e definitiva)
+# app.py (versão com Edição, Exclusão e Tema Visual)
 
 import streamlit as st
 import pandas as pd
@@ -8,27 +8,72 @@ import gspread
 from google.oauth2.service_account import Credentials
 import io
 
-# --- Função de Conexão com o Google Sheets (Reestruturada) ---
-@st.cache_resource(ttl=600)
+# --- Configuração da Página e Tema Visual ---
+st.set_page_config(
+    page_title="Matriz de Priorização de Projetos",
+    page_icon="📊",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
+# Injeta CSS para aplicar o tema de cores personalizado
+st.markdown("""
+<style>
+    /* Cor de fundo da aplicação principal */
+    .main {
+        background-color: #FFFFFF;
+    }
+    /* Cor de fundo da barra lateral */
+    [data-testid="stSidebar"] {
+        background-color: #191e50; /* Cor primária */
+    }
+    /* Cor do texto na barra lateral */
+    [data-testid="stSidebar"] * {
+        color: #FFFFFF;
+    }
+    /* Cor dos títulos principais */
+    h1, h2, h3 {
+        color: #191e50; /* Cor primária */
+    }
+    /* Estilo dos botões */
+    .stButton>button {
+        color: #FFFFFF;
+        background-color: #f79433; /* Cor secundária */
+        border: none;
+        border-radius: 5px;
+        padding: 10px 24px;
+    }
+    .stButton>button:hover {
+        background-color: #d87e2a; /* Um tom mais escuro para o hover */
+        color: #FFFFFF;
+    }
+    /* Estilo dos expanders */
+    .st-expander-header {
+        font-size: 1.1em !important;
+        font-weight: bold !important;
+        color: #191e50 !important;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+
+# --- Funções de Conexão com o Google Sheets (CRUD) ---
+
+@st.cache_resource(ttl=300)
 def connect_gsheets():
-    """Conecta-se ao Google Sheets usando o método de autenticação explícito."""
+    """Conecta-se ao Google Sheets e retorna o objeto da worksheet."""
     try:
-        scopes = [
-            "https://www.googleapis.com/auth/spreadsheets",
-            "https://www.googleapis.com/auth/drive",
-        ]
+        scopes = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
         creds_dict = st.secrets["gcp_service_account"].to_dict()
         creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
         sa = gspread.authorize(creds)
         sheet = sa.open("Base de Dados - Ferramenta de Priorização")
         return sheet.worksheet("Sheet1")
     except Exception as e:
-        st.error(f"Erro Crítico ao conectar ao Google Sheets: {e}")
-        st.info("Verifique se as APIs 'Google Drive API' e 'Google Sheets API' estão ativas e se a folha foi partilhada com o email da conta de serviço.")
+        st.error(f"Erro Crítico ao conectar: {e}")
         return None
 
-# --- Funções de Leitura e Gravação ---
-@st.cache_data(ttl=300)
+@st.cache_data(ttl=60)
 def get_data_from_gsheets():
     """Conecta e lê os dados, retornando um DataFrame."""
     worksheet = connect_gsheets()
@@ -42,21 +87,57 @@ def get_data_from_gsheets():
     except Exception:
         return pd.DataFrame()
 
-def gravar_projeto(data):
-    """Grava um novo projeto na worksheet."""
-    worksheet = connect_gsheets()
-    if worksheet:
+def find_row_by_id(worksheet, project_id):
+    """Encontra o número da linha de um projeto pelo seu ID."""
+    try:
+        cell = worksheet.find(str(project_id), in_column=1) # Procura na coluna 'ID'
+        return cell.row
+    except (gspread.exceptions.CellNotFound, AttributeError):
+        return None
+
+def update_projeto(worksheet, project_id, data):
+    """Atualiza um projeto existente na folha de cálculo."""
+    row_number = find_row_by_id(worksheet, project_id)
+    if row_number:
         try:
-            next_id = len(worksheet.get_all_records()) + 1
-            data['ID'] = next_id
             headers = worksheet.row_values(1)
-            new_row_ordered = [data.get(h, '') for h in headers]
-            worksheet.append_row(new_row_ordered)
+            # Monta a lista de valores na ordem correta das colunas
+            update_values = [data.get(h, '') for h in headers]
+            worksheet.update(f'A{row_number}', [update_values])
             return True
         except Exception as e:
-            st.error(f"Erro ao gravar os dados: {e}")
+            st.error(f"Erro ao atualizar o projeto: {e}")
             return False
     return False
+
+def delete_projeto(worksheet, project_id):
+    """Exclui um projeto da folha de cálculo."""
+    row_number = find_row_by_id(worksheet, project_id)
+    if row_number:
+        try:
+            worksheet.delete_rows(row_number)
+            return True
+        except Exception as e:
+            st.error(f"Erro ao excluir o projeto: {e}")
+            return False
+    return False
+
+def gravar_projeto(worksheet, data):
+    """Grava um novo projeto."""
+    try:
+        # Pega o próximo ID disponível (max ID + 1)
+        all_ids = worksheet.col_values(1)[1:] # Pula o cabeçalho
+        all_ids = [int(i) for i in all_ids if i.isdigit()]
+        next_id = max(all_ids) + 1 if all_ids else 1
+        data['ID'] = next_id
+        
+        headers = worksheet.row_values(1)
+        new_row_ordered = [data.get(h, '') for h in headers]
+        worksheet.append_row(new_row_ordered)
+        return True
+    except Exception as e:
+        st.error(f"Erro ao gravar o novo projeto: {e}")
+        return False
 
 # --- Dicionários de Mapeamento e Funções de Cálculo ---
 MAPA_ALINHAMENTO = {"Desconectado da estratégia da empresa": 1, "Levemente conectado a temas operacionais": 2, "Conectado a um objetivo estratégico secundário": 3, "Atende diretamente um objetivo estratégico prioritário": 4, "É essencial para a execução de uma frente estratégica central": 5}
@@ -66,14 +147,15 @@ MAPA_CUSTO = {"Entregável em até 2 semanas com equipe atual": 1, "Exige até 1
 MAPA_ENGAJAMENTO = {"Área requisitante ausente ou passiva": 1, "Pouco engajamento, sem interlocutor fixo": 2, "Engajamento esporádico e reativo": 3, "Existe Data Owner claro e colaborativo": 4, "Cocriação ativa com liderança da área e patrocínio executivo": 5}
 MAPA_DEPENDENCIA = {"Nenhum fornecedor envolvido. Tudo interno": 1, "Fornecedor envolvido, mas contrato vigente e serviços maduros": 2, "Alguma dependência de entregas de terceiros, com SLA razoável": 3, "Dependência crítica de fornecedor específico, sem redundância": 4, "Fornecedores múltiplos, novos ou instáveis, com risco de travamento": 5}
 
-def processar_novo_projeto(data):
+def processar_projeto(data):
+    """Pega os dados brutos e calcula todas as notas e a classificação."""
     df = pd.DataFrame([data])
-    df['score_alinhamento'] = df['alinhamento'].map(MAPA_ALINHAMENTO)
-    df['score_ebitda'] = df['ebitda'].map(MAPA_EBITDA)
-    df['score_complexidade'] = df['complexidade'].map(MAPA_COMPLEXIDADE)
-    df['score_custo'] = df['custo'].map(MAPA_CUSTO)
-    df['score_engajamento'] = 6 - df['engajamento'].map(MAPA_ENGAJAMENTO)
-    df['score_dependencia'] = df['dependencia'].map(MAPA_DEPENDENCIA)
+    mapas = {'alinhamento': MAPA_ALINHAMENTO, 'ebitda': MAPA_EBITDA, 'complexidade': MAPA_COMPLEXIDADE, 'custo': MAPA_CUSTO, 'dependencia': MAPA_DEPENDENCIA}
+    for col_db, mapa in mapas.items():
+        if col_db in df.columns:
+            df[f'score_{col_db}'] = df[col_db].map(mapa)
+    if 'engajamento' in df.columns:
+        df['score_engajamento'] = 6 - df['engajamento'].map(MAPA_ENGAJAMENTO)
     df['Nota Impacto'] = df[['score_alinhamento', 'score_ebitda']].mean(axis=1)
     df['Nota Esforço'] = df[['score_complexidade', 'score_custo', 'score_engajamento', 'score_dependencia']].mean(axis=1)
     ponto_corte = 2.5
@@ -90,45 +172,99 @@ def to_excel(df):
 
 # --- Estrutura Principal da Aplicação ---
 def main():
-    st.set_page_config(page_title="Matriz de Priorização de Projetos", page_icon="📊", layout="wide")
     st.title("Matriz de Priorização de Projetos")
-    st.markdown("Selecione a descrição que melhor se adequa ao projeto em cada critério.")
+    st.markdown("Adicione, edite ou visualize os projetos para classificá-los em uma matriz de Impacto vs. Esforço.")
 
-    with st.sidebar.form("novo_projeto_form", clear_on_submit=True):
-        st.header("Adicionar Novo Projeto")
-        nome = st.text_input("Nome do Projeto")
-        demanda_legal = st.checkbox("É uma Demanda Legal ou de Auditoria?")
-        st.subheader("Critérios de Impacto")
-        alinhamento = st.radio("Alinhamento estratégico", options=MAPA_ALINHAMENTO.keys(), index=2)
-        ebitda = st.radio("Impacto em EBITDA", options=MAPA_EBITDA.keys(), index=2)
-        st.subheader("Critérios de Esforço")
-        complexidade = st.radio("Complexidade técnica", options=MAPA_COMPLEXIDADE.keys(), index=2)
-        custo = st.radio("Custo (Tempo e Recursos)", options=MAPA_CUSTO.keys(), index=2)
-        engajamento = st.radio("Engajamento da Área Requisitante", options=MAPA_ENGAJAMENTO.keys(), index=2)
-        dependencia = st.radio("Dependência de Fornecedores", options=MAPA_DEPENDENCIA.keys(), index=2)
-        submitted = st.form_submit_button("Adicionar Projeto")
-
-    if submitted:
-        dados_brutos = {'nome_projeto': nome, 'demanda_legal': demanda_legal, 'alinhamento': alinhamento, 'ebitda': ebitda, 'complexidade': complexidade, 'custo': custo, 'engajamento': engajamento, 'dependencia': dependencia}
-        projeto_final = processar_novo_projeto(dados_brutos)
-        if gravar_projeto(projeto_final):
-            st.sidebar.success("Projeto adicionado com sucesso ao Google Sheets!")
-            st.cache_data.clear()
-        else:
-            st.sidebar.error("Falha ao gravar no Google Sheets.")
-
+    # Inicializa o estado da sessão para controlar a edição
+    if 'editing_project_id' not in st.session_state:
+        st.session_state.editing_project_id = None
+    
     df_projetos = get_data_from_gsheets()
+    
+    # --- LÓGICA DO FORMULÁRIO (Adicionar vs. Editar) ---
+    st.sidebar.header(f"{'Editar Projeto' if st.session_state.editing_project_id else 'Adicionar Novo Projeto'}")
 
+    # Se estiver em modo de edição, busca os dados do projeto
+    project_to_edit = {}
+    if st.session_state.editing_project_id:
+        project_to_edit = df_projetos[df_projetos['ID'] == st.session_state.editing_project_id].to_dict('records')[0]
+
+    # Converte as opções do radio para uma lista para encontrar o índice
+    options_alinhamento = list(MAPA_ALINHAMENTO.keys())
+    options_ebitda = list(MAPA_EBITDA.keys())
+    options_complexidade = list(MAPA_COMPLEXIDADE.keys())
+    options_custo = list(MAPA_CUSTO.keys())
+    options_engajamento = list(MAPA_ENGAJAMENTO.keys())
+    options_dependencia = list(MAPA_DEPENDENCIA.keys())
+
+    nome = st.sidebar.text_input("Nome do Projeto", value=project_to_edit.get('nome_projeto', ''))
+    demanda_legal = st.sidebar.checkbox("É uma Demanda Legal?", value=project_to_edit.get('demanda_legal', False))
+    
+    st.sidebar.subheader("Critérios de Impacto")
+    alinhamento = st.sidebar.radio("Alinhamento estratégico", options=options_alinhamento, index=options_alinhamento.index(project_to_edit.get('alinhamento', options_alinhamento[2])))
+    ebitda = st.sidebar.radio("Impacto em EBITDA", options=options_ebitda, index=options_ebitda.index(project_to_edit.get('ebitda', options_ebitda[2])))
+    
+    st.sidebar.subheader("Critérios de Esforço")
+    complexidade = st.sidebar.radio("Complexidade técnica", options=options_complexidade, index=options_complexidade.index(project_to_edit.get('complexidade', options_complexidade[2])))
+    custo = st.sidebar.radio("Custo (Tempo e Recursos)", options=options_custo, index=options_custo.index(project_to_edit.get('custo', options_custo[2])))
+    engajamento = st.sidebar.radio("Engajamento da Área", options=options_engajamento, index=options_engajamento.index(project_to_edit.get('engajamento', options_engajamento[2])))
+    dependencia = st.sidebar.radio("Dependência de Fornecedores", options=options_dependencia, index=options_dependencia.index(project_to_edit.get('dependencia', options_dependencia[2])))
+
+    col1, col2 = st.sidebar.columns(2)
+    with col1:
+        if st.button("Salvar"):
+            dados_brutos = {'nome_projeto': nome, 'demanda_legal': demanda_legal, 'alinhamento': alinhamento, 'ebitda': ebitda, 'complexidade': complexidade, 'custo': custo, 'engajamento': engajamento, 'dependencia': dependencia}
+            projeto_final = processar_projeto(dados_brutos)
+            
+            worksheet = connect_gsheets()
+            if worksheet:
+                if st.session_state.editing_project_id: # MODO EDIÇÃO
+                    projeto_final['ID'] = st.session_state.editing_project_id
+                    if update_projeto(worksheet, st.session_state.editing_project_id, projeto_final):
+                        st.success("Projeto atualizado com sucesso!")
+                        st.session_state.editing_project_id = None
+                        st.cache_data.clear()
+                        st.rerun()
+                else: # MODO ADIÇÃO
+                    if gravar_projeto(worksheet, projeto_final):
+                        st.success("Projeto adicionado com sucesso!")
+                        st.cache_data.clear()
+                        st.rerun()
+    with col2:
+        if st.session_state.editing_project_id:
+            if st.button("Cancelar Edição"):
+                st.session_state.editing_project_id = None
+                st.rerun()
+
+    # --- Exibição dos Resultados ---
     if not df_projetos.empty:
-        # Os cálculos agora são feitos ANTES de gravar, então lemos os dados já calculados
-        df_classificado = df_projetos.copy()
-        st.subheader("Tabela de Priorização")
-        colunas_para_exibir = ["nome_projeto", "demanda_legal", "Nota Impacto", "Nota Esforço", "Classificação"]
-        st.dataframe(df_classificado[colunas_para_exibir].rename(columns=lambda c: c.replace('_', ' ').title()).round(2))
+        st.subheader("Lista de Projetos")
+        
+        # Processa os dados para exibição (não salva)
+        df_classificado = processar_projeto(df_projetos.to_dict('records')[0] if len(df_projetos) == 1 else pd.concat([pd.DataFrame([processar_projeto(r)]) for i, r in df_projetos.iterrows()], ignore_index=True))
+
+        for index, row in df_classificado.iterrows():
+            with st.expander(f"{row['nome_projeto']} (Impacto: {row['Nota Impacto']:.2f} | Esforço: {row['Nota Esforço']:.2f})"):
+                st.write(f"**Classificação:** {row['Classificação']}")
+                st.write(f"**Demanda Legal:** {'Sim' if row['demanda_legal'] else 'Não'}")
+                
+                edit_col, del_col = st.columns([0.2, 1])
+                with edit_col:
+                    if st.button("Editar", key=f"edit_{row['ID']}"):
+                        st.session_state.editing_project_id = row['ID']
+                        st.rerun()
+                with del_col:
+                    if st.button("Excluir", key=f"del_{row['ID']}"):
+                        worksheet = connect_gsheets()
+                        if worksheet and delete_projeto(worksheet, row['ID']):
+                            st.success(f"Projeto '{row['nome_projeto']}' excluído.")
+                            st.session_state.editing_project_id = None # Cancela edição se houver
+                            st.cache_data.clear()
+                            st.rerun()
         
         st.subheader("Matriz de Priorização")
         ponto_corte = 2.5
-        fig = px.scatter(df_classificado, x="Nota Esforço", y="Nota Impacto", text="nome_projeto", color="Classificação", color_discrete_map={'Prioridade Legal': '#8A2BE2', 'Ganhos Rápidos': '#32CD32', 'Projetos Maiores': '#1E90FF', 'Projetos Rápidos': '#FFD700', 'Reavaliar': '#FF4500'}, size_max=40, hover_data=colunas_para_exibir)
+        fig = px.scatter(df_classificado, x="Nota Esforço", y="Nota Impacto", text="nome_projeto", color="Classificação", color_discrete_map={'Prioridade Legal': '#8A2BE2', 'Ganhos Rápidos': '#32CD32', 'Projetos Maiores': '#1E90FF', 'Projetos Rápidos': '#f79433', 'Reavaliar': '#FF4500'}, size_max=40)
         fig.add_vline(x=ponto_corte, line_dash="dash", line_color="gray")
         fig.add_hline(y=ponto_corte, line_dash="dash", line_color="gray")
         fig.add_annotation(x=ponto_corte/2, y=ponto_corte/2, text="Projetos Rápidos", showarrow=False, font=dict(color="gray", size=10))
@@ -136,8 +272,8 @@ def main():
         fig.add_annotation(x=ponto_corte/2, y=(ponto_corte + 6) / 2, text="Ganhos Rápidos", showarrow=False, font=dict(color="gray", size=10))
         fig.add_annotation(x=(ponto_corte + 6) / 2, y=(ponto_corte + 6) / 2, text="Projetos Maiores", showarrow=False, font=dict(color="gray", size=10))
         fig.update_traces(textposition='top center')
-        fig.update_xaxes(range=[0, 5.1])
-        fig.update_yaxes(range=[0, 5.1])
+        fig.update_xaxes(range=[0, 6])
+        fig.update_yaxes(range=[0, 6])
         fig.update_layout(xaxis_title="Esforço →", yaxis_title="Impacto →", legend_title="Classificação", height=600)
         st.plotly_chart(fig, use_container_width=True)
 
