@@ -1,4 +1,4 @@
-# app.py (versão com ajuste final na cor do botão Salvar)
+# app.py (versão com ajuste final na cor da fonte do botão)
 
 import streamlit as st
 import pandas as pd
@@ -22,11 +22,11 @@ st.markdown("""
     [data-testid="stSidebar"] {
         background-color: #f79433; /* Cor secundária (laranja) */
     }
-    /* Cor do texto geral na barra lateral (títulos, labels) */
-    [data-testid="stSidebar"] * {
+    /* AQUI ESTÁ A CORREÇÃO: Aplica a cor do texto apenas aos títulos e labels, não a tudo */
+    [data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3, [data-testid="stSidebar"] .st-emotion-cache-1g6i6b0, [data-testid="stSidebar"] .st-emotion-cache-taue2i {
         color: #191e50; /* Cor primária para o texto */
     }
-    /* Cor do texto DENTRO dos campos de input para preto */
+    /* Cor do texto DENTRO dos campos de input para preto, garantindo visibilidade */
     [data-testid="stSidebar"] input, [data-testid="stSidebar"] textarea {
         color: #000000 !important;
     }
@@ -34,7 +34,7 @@ st.markdown("""
     h1, h2, h3 {
         color: #191e50; /* Cor primária */
     }
-    /* AQUI ESTÁ A CORREÇÃO: Estilo dos botões */
+    /* Estilo dos botões, que agora não será mais sobrescrito */
     .stButton>button {
         color: #FFFFFF; /* Fonte branca */
         background-color: #191e50; /* Fundo azul (cor primária) */
