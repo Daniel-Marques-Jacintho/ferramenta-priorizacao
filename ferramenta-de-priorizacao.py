@@ -172,8 +172,8 @@ def main():
         fig.add_annotation(x=(ponto_corte + 6) / 2, y=(ponto_corte + 6) / 2, text="Projetos Maiores", showarrow=False, font=dict(color="gray", size=10))
         
         fig.update_traces(textposition='top center')
-        fig.update_xaxes(range=[0, 6])
-        fig.update_yaxes(range=[0, 6])
+        fig.update_xaxes(range=[0, 5.1])
+        fig.update_yaxes(range=[0, 5.1])
         fig.update_layout(xaxis_title="Esforço →", yaxis_title="Impacto →", legend_title="Classificação", height=600)
         st.plotly_chart(fig, use_container_width=True)
 
