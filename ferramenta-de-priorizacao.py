@@ -102,7 +102,7 @@ def to_excel(df):
 
 # Estrutura da aplicação
 def main():
-    st.set_page_config(page_title="Matriz de Priorização de Projetos", page_icon="📊", layout="wide")
+    st.set_page_config(page_title="Matriz de Priorização de Projetos", page_icon="RANDS", layout="wide")
     st.title("Matriz de Priorização de Projetos")
     st.markdown("Selecione a descrição que melhor se adequa ao projeto em cada critério.")
 
@@ -139,7 +139,7 @@ def main():
             
             # Grava a linha completa no Google Sheets
             if gravar_projeto_completo(worksheet, projeto_final):
-                st.sidebar.success("Projeto adicionado com sucesso ao Google Sheets!")
+                st.sidebar.success("Projeto adicionado com sucesso!")
                 st.cache_data.clear() # Limpa o cache para recarregar os dados
             else:
                 st.sidebar.error("Falha ao gravar no Google Sheets.")
